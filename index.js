@@ -17,7 +17,7 @@ await db.exec(`
     client_offset TEXT UNIQUE,
     content TEXT
   );
-`)
+`);
 
 const app = express();
 const server = createServer(app);
@@ -37,14 +37,20 @@ io.on('connection', async (socket) => {
     console.log('user disconnected');
   });
   
-  socket.on('chat message', async (msg) => {
+  socket.on('chat message', async (msg, clientOffset, callback) => {
     let result;
     try {
-      result = await db.run('INSERT INTO messages (content) VALUES (?)', msg);
+      result = await db.run('INSERT INTO messages (content, client_offset) VALUES (?, ?)', msg, clientOffset);
     } catch(e) {
-      return;
+      // duplication, msg already exists on db
+      if (e.errno === 19) {
+        callback();
+      } else {
+
+      }
     }
     io.emit('chat message', msg, result.lastID);
+    callback();
   });
 
   if (!socket.recovered) {
