@@ -1,6 +1,6 @@
 {
     "user": {
-        "join": "A user has joined the chat",
-        "leave": "A user has left the chat"
+        "join": " has joined the chat",
+        "leave": " has left the chat"
     }
 }

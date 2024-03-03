@@ -42,6 +42,7 @@ if (Cluster.isPrimary) {
     adapter: createAdapter(),
   });
 
+  const users = {};
   const __dirname = dirname(fileURLToPath(import.meta.url));
 
   app.get('/', (req, res) => {
@@ -52,22 +53,30 @@ if (Cluster.isPrimary) {
     res.sendFile(join(`${__dirname}/client`, 'app.js'));
   })
 
+  app.get('/client/app.css', (req, res) => {
+    res.sendFile(join(`${__dirname}/client`, 'app.css'));
+  })
+
   io.on('connection', async (socket) => {
+    const joinedBy = socket.handshake.auth.username;
+    users[socket.id] = joinedBy;
     console.log('a user connected', socket.id);
 
     // A user joined the chat
-    io.emit('user join', messages.user.join, socket.id);
+    io.emit('user join', `${joinedBy}${messages.user.join}`, socket.id);
 
     // A user left the chat
     socket.on('disconnect', () => {
-      io.emit('user leave', messages.user.leave);
+      io.emit('user leave', `${joinedBy}${messages.user.leave}`);
+      delete users[socket.id];
       console.log('user disconnected');
     });
 
     socket.on('chat message', async (msg, clientOffset, callback) => {
       let result;
+      const _msg = `${users[socket.id]}: ${msg}`;
       try {
-        result = await db.run('INSERT INTO messages (content, client_offset) VALUES (?, ?)', msg, clientOffset);
+        result = await db.run('INSERT INTO messages (content, client_offset) VALUES (?, ?)', _msg, clientOffset);
       } catch(e) {
         // duplication, msg already exists on db
         if (e.errno === 19) {
@@ -76,7 +85,7 @@ if (Cluster.isPrimary) {
 
         }
       }
-      io.emit('chat message', msg, result.lastID);
+      io.emit('chat message', _msg, result.lastID);
       callback();
     });
 
@@ -95,6 +104,5 @@ if (Cluster.isPrimary) {
   server.listen(process.env.PORT, () => {
     console.log('server running at local:', process.env.PORT);
   });
-
 }
 
