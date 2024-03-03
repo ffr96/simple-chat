@@ -1,13 +1,15 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join} from 'node:path';
 import { Server } from 'socket.io';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { availableParallelism } from 'node:os';
 import Cluster from 'node:cluster';
 import { createAdapter, setupPrimary } from '@socket.io/cluster-adapter';
+
+import messages from "./messages.json" assert { type: "json" };
 
 const db = await open({
   filename: 'chat.db',
@@ -46,9 +48,19 @@ if (Cluster.isPrimary) {
     res.sendFile(join(__dirname, 'index.html'));
   });
 
+  app.get('/client/app.js', (req, res) => {
+    res.sendFile(join(`${__dirname}/client`, 'app.js'));
+  })
+
   io.on('connection', async (socket) => {
     console.log('a user connected', socket.id);
+
+    // A user joined the chat
+    io.emit('user join', messages.user.join, socket.id);
+
+    // A user left the chat
     socket.on('disconnect', () => {
+      io.emit('user leave', messages.user.leave);
       console.log('user disconnected');
     });
 
@@ -83,4 +95,6 @@ if (Cluster.isPrimary) {
   server.listen(process.env.PORT, () => {
     console.log('server running at local:', process.env.PORT);
   });
+
 }
+
